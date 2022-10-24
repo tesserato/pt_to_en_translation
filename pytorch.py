@@ -115,6 +115,10 @@ for epoch in range(EPOCHS):
         loss.backward()
         optimizer.step()
     print(loss.float())
+    for src, tgt in val_loader:
+        out = transformer.forward(src, tgt)
+        optimizer.zero_grad()
+
 
 exit()
 for batch, (pt_examples, en_examples) in enumerate(train_examples.batch(BATCH_SIZE).take(EPOCHS)):
