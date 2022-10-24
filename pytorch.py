@@ -57,6 +57,12 @@ def tensorsFromDataset(train_examples):
     en_tensor = torch.stack(en_tensor)
     return pt_tensor, en_tensor
 
+def tensor2words(tensor, nlp):
+    words = []
+    for vector in tensor:
+        ms = nlp.vocab.vectors.most_similar(vector.detach().numpy()[0], n=1)
+        words.append(ms[0][0][0])
+    return words
 
 if os.path.isfile("en_tensor.pt"): # assumes other 3 tensors are also available
     en_tensor = torch.load("en_tensor.pt")
@@ -118,6 +124,7 @@ for epoch in range(EPOCHS):
     for src, tgt in val_loader:
         out = transformer.forward(src, tgt)
         optimizer.zero_grad()
+        print("src: ", tensor2words(src, nlp))
 
 
 exit()
