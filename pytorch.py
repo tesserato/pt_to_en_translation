@@ -13,23 +13,9 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Running in {DEVICE} mode")
 print(f"len pt vocab = {len(nlpPt.vocab)}, len en vocab = {len(nlpEn.vocab)}")
 
-
-if os.path.isfile("en_tensor.pt") and os.path.isfile("pt_tensor.pt"):
-    en_tensor = torch.load("en_tensor.pt")
-    pt_tensor = torch.load("pt_tensor.pt")
-else:
-    '''This will download the dataset on first run'''
-    examples, metadata = tfds.load(
-        'ted_hrlr_translate/pt_to_en',
-        with_info=True,
-        as_supervised=True
-    )
-    train_examples, val_examples = examples['train'], examples['validation']
-
+def tensorsFromDataset(train_examples):
     MAX_TRAIN_EXAMPLES = len(train_examples)
-
     data = []
-
     max_row_len = 0
     for batch, (pt_examples, en_examples) in enumerate(train_examples.batch(MAX_TRAIN_EXAMPLES).take(1)):
         for phrase, (pt, en) in enumerate(zip(pt_examples.numpy(), en_examples.numpy())):
@@ -69,17 +55,38 @@ else:
 
     pt_tensor = torch.stack(pt_tensor)
     en_tensor = torch.stack(en_tensor)
+    return pt_tensor, en_tensor
 
+
+if os.path.isfile("en_tensor.pt"): # assumes other 3 tensors are also available
+    en_tensor = torch.load("en_tensor.pt")
+    pt_tensor = torch.load("pt_tensor.pt")
+    en_tensor_val = torch.load("en_tensor_val.pt")
+    pt_tensor_val = torch.load("pt_tensor_val.pt")
+else: # if not, creates tensors from the dataset ans saves them
+    '''This will download the dataset on first run'''
+    examples, metadata = tfds.load(
+        'ted_hrlr_translate/pt_to_en',
+        with_info=True,
+        as_supervised=True
+    )
+    train_examples, val_examples = examples['train'], examples['validation']
+
+    
+    en_tensor, pt_tensor = tensorsFromDataset(examples['train'])
     torch.save(pt_tensor, 'pt_tensor.pt')
     torch.save(en_tensor, 'en_tensor.pt')
+
+    en_tensor_val, pt_tensor_val = tensorsFromDataset(examples['validation'])
+    torch.save(pt_tensor_val, 'pt_tensor_val.pt')
+    torch.save(en_tensor_val, 'en_tensor_val.pt')
 
 
 print(pt_tensor.size(), en_tensor.size())
 BATCH_SIZE = 64
 EPOCHS = 1000
 train = torch.utils.data.TensorDataset(pt_tensor, en_tensor)
-train_loader = torch.utils.data.DataLoader(
-    train, batch_size=BATCH_SIZE, shuffle=True)
+train_loader = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
 
 
 d_model = 300
