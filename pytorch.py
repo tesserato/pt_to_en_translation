@@ -1,150 +1,150 @@
-import tensorflow_datasets as tfds
 import spacy
-# import numpy as np
-nlpEn = spacy.load("en_core_web_sm")
-nlpPt = spacy.load("pt_core_news_lg")
+import numpy as np
+import os
 from torch import Tensor
 import torch
 import torch.nn as nn
 from torch.nn import Transformer
-import math
+import tensorflow_datasets as tfds
+
+nlpPt = spacy.load("pt_core_news_lg")
+nlpEn = spacy.load("en_core_web_lg")
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"Running in {DEVICE} mode")
-
 print(f"len pt vocab = {len(nlpPt.vocab)}, len en vocab = {len(nlpEn.vocab)}")
 
-'''This will download the dataset on first run'''
-examples, metadata = tfds.load(
-    'ted_hrlr_translate/pt_to_en',
-    with_info=True,
-    as_supervised=True
-)
-# UNK_IDX, PAD_IDX, BOS_IDX, EOS_IDX = 0, 1, 2, 3
-# helper Module that adds positional encoding to the token embedding to introduce a notion of word order.
-# class PositionalEncoding(nn.Module):
-#     def __init__(self,
-#                  emb_size: int,
-#                  dropout: float,
-#                  maxlen: int = 5000):
-#         super(PositionalEncoding, self).__init__()
-#         den = torch.exp(- torch.arange(0, emb_size, 2)* math.log(10000) / emb_size)
-#         pos = torch.arange(0, maxlen).reshape(maxlen, 1)
-#         pos_embedding = torch.zeros((maxlen, emb_size))
-#         pos_embedding[:, 0::2] = torch.sin(pos * den)
-#         pos_embedding[:, 1::2] = torch.cos(pos * den)
-#         pos_embedding = pos_embedding.unsqueeze(-2)
 
-#         self.dropout = nn.Dropout(dropout)
-#         self.register_buffer('pos_embedding', pos_embedding)
+if os.path.isfile("en_tensor.pt") and os.path.isfile("pt_tensor.pt"):
+    en_tensor = torch.load("en_tensor.pt")
+    pt_tensor = torch.load("pt_tensor.pt")
+else:
+    '''This will download the dataset on first run'''
+    examples, metadata = tfds.load(
+        'ted_hrlr_translate/pt_to_en',
+        with_info=True,
+        as_supervised=True
+    )
+    train_examples, val_examples = examples['train'], examples['validation']
 
-#     def forward(self, token_embedding: Tensor):
-#         return self.dropout(token_embedding + self.pos_embedding[:token_embedding.size(0), :])
+    MAX_TRAIN_EXAMPLES = len(train_examples)
 
-# helper Module to convert tensor of input indices into corresponding tensor of token embeddings
-# class TokenEmbedding(nn.Module):
-#     def __init__(self, vocab_size: int, emb_size):
-#         super(TokenEmbedding, self).__init__()
-#         self.embedding = nn.Embedding(vocab_size, emb_size)
-#         self.emb_size = emb_size
+    data = []
 
-#     def forward(self, tokens: Tensor):
-#         return self.embedding(tokens.long()) * math.sqrt(self.emb_size)
+    max_row_len = 0
+    for batch, (pt_examples, en_examples) in enumerate(train_examples.batch(MAX_TRAIN_EXAMPLES).take(1)):
+        for phrase, (pt, en) in enumerate(zip(pt_examples.numpy(), en_examples.numpy())):
+            pt_utf8 = nlpPt(pt.decode('utf-8'))
+            pt_vectors = []
+            for pt_token in pt_utf8:
+                pt_vectors.append(pt_token.vector)
+            if len(pt_vectors) > max_row_len:
+                max_row_len = len(pt_vectors)
 
-# Seq2Seq Network
-class Seq2SeqTransformer(nn.Module):
-    def __init__(self,
-                 num_encoder_layers: int,
-                 num_decoder_layers: int,
-                 emb_size: int,
-                 nhead: int,
-                #  src_vocab_size: int,
-                #  tgt_vocab_size: int,
-                 dim_feedforward: int = 512,
-                 dropout: float = 0.1):
-        super(Seq2SeqTransformer, self).__init__()
-        self.transformer = Transformer(d_model=emb_size,
-                                       nhead=nhead,
-                                       num_encoder_layers=num_encoder_layers,
-                                       num_decoder_layers=num_decoder_layers,
-                                       dim_feedforward=dim_feedforward,
-                                       dropout=dropout)
-        # self.generator = nn.Linear(emb_size, tgt_vocab_size)
-        # self.src_tok_emb = TokenEmbedding(src_vocab_size, emb_size)
-        # self.tgt_tok_emb = TokenEmbedding(tgt_vocab_size, emb_size)
-        # self.positional_encoding = PositionalEncoding(emb_size, dropout=dropout)
+            en_utf8 = nlpEn(en.decode('utf-8'))
+            en_vectors = []
+            for en_token in en_utf8:
+                en_vectors.append(en_token.vector)
+            if len(en_vectors) > max_row_len:
+                max_row_len = len(en_vectors)
 
-    def forward(self,
-                src: Tensor,
-                tgt: Tensor,
-                src_mask: Tensor = None,
-                tgt_mask: Tensor = None,
-                src_padding_mask: Tensor = None,
-                tgt_padding_mask: Tensor = None,
-                memory_key_padding_mask: Tensor = None):
-        # src_emb = self.positional_encoding(self.src_tok_emb(src))
-        # tgt_emb = self.positional_encoding(self.tgt_tok_emb(trg))
-        outs = self.transformer(src, tgt, src_mask, tgt_mask, None, src_padding_mask, tgt_padding_mask, memory_key_padding_mask)
-        return outs #self.generator(outs)
+            data.append((np.array(pt_vectors), np.array(en_vectors)))
+            print(
+                f"creating dataloader vectors... {phrase + 1} of {MAX_TRAIN_EXAMPLES}, max len = {max_row_len}")
 
-    # def encode(self, src: Tensor, src_mask: Tensor):
-    #     return self.transformer.encoder(self.positional_encoding(
-    #                         self.src_tok_emb(src)), src_mask)
+    pt_tensor = []
+    en_tensor = []
+    for pt_row, en_row in data:
+        pt_row = torch.tensor(pt_row)
+        print(pt_row.size())
+        pt_row = torch.cat((pt_row, torch.zeros(
+            max_row_len - pt_row.size()[0], 300)), 0)
+        print(pt_row.size())
+        # exit()
+        pt_tensor.append(pt_row)
 
-    # def decode(self, tgt: Tensor, memory: Tensor, tgt_mask: Tensor):
-    #     return self.transformer.decoder(self.positional_encoding(
-    #                       self.tgt_tok_emb(tgt)), memory,
-    #                       tgt_mask)
+        en_row = torch.tensor(en_row)
+        en_row = torch.cat((en_row, torch.zeros(
+            max_row_len - en_row.size()[0], 300)), 0)
+        en_tensor.append(en_row)
 
-# def generate_square_subsequent_mask(sz):
-#     mask = (torch.triu(torch.ones((sz, sz), device=DEVICE)) == 1).transpose(0, 1)
-#     mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-#     return mask
+    pt_tensor = torch.stack(pt_tensor)
+    en_tensor = torch.stack(en_tensor)
+
+    torch.save(pt_tensor, 'pt_tensor.pt')
+    torch.save(en_tensor, 'en_tensor.pt')
 
 
-# def create_mask(src, tgt):
-#     src_seq_len = src.shape[0]
-#     tgt_seq_len = tgt.shape[0]
-
-#     tgt_mask = generate_square_subsequent_mask(tgt_seq_len)
-#     src_mask = torch.zeros((src_seq_len, src_seq_len),device=DEVICE).type(torch.bool)
-
-#     src_padding_mask = (src == PAD_IDX).transpose(0, 1)
-#     tgt_padding_mask = (tgt == PAD_IDX).transpose(0, 1)
-#     return src_mask, tgt_mask, src_padding_mask, tgt_padding_mask
+print(pt_tensor.size(), en_tensor.size())
+BATCH_SIZE = 64
+EPOCHS = 1000
+train = torch.utils.data.TensorDataset(pt_tensor, en_tensor)
+train_loader = torch.utils.data.DataLoader(
+    train, batch_size=BATCH_SIZE, shuffle=True)
 
 
-d_model = 64
-transformer = Seq2SeqTransformer(
-                 num_encoder_layers=4,
-                 num_decoder_layers=4,
-                 emb_size=d_model,
-                 nhead=8,
-                #  src_vocab_size=len(nlpPt.vocab),
-                #  tgt_vocab_size=len(nlpEn.vocab),
+d_model = 300
+transformer = Transformer(
+    num_encoder_layers=4,
+    num_decoder_layers=4,
+    d_model=d_model,
+    nhead=10,
+    #  src_vocab_size=len(nlpPt.vocab),
+    #  tgt_vocab_size=len(nlpEn.vocab),
 )
 
 
 loss_fn = torch.nn.MSELoss()
-optimizer = torch.optim.Adam(transformer.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
+optimizer = torch.optim.Adam(
+    transformer.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
 
-
-train_examples, val_examples = examples['train'], examples['validation']
-# pt_examples, en_examples are arrays of 3 bytestrings representing a phrase in portuguese and its translation in english
-for batch, (pt_examples, en_examples) in enumerate(train_examples.batch(1).take(200)):
-  # print(f"########################## Batch {batch + 1} ##########################")
-  for phrase, (pt, en) in enumerate(zip(pt_examples.numpy(), en_examples.numpy())):
-    src = nlpPt(pt.decode('utf-8')).vector
-    tgt = nlpEn(en.decode('utf-8')).vector
-    m = min(len(src), len(tgt))
-    src = torch.tensor(src[:d_model]).unsqueeze(0).unsqueeze(0)
-    tgt = torch.tensor(tgt[:d_model]).unsqueeze(0).unsqueeze(0)
-    # print(src.shape, tgt.shape)
-    out = transformer.forward(src, tgt)
-    loss = loss_fn(out, tgt)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+for epoch in range(EPOCHS):
+    for src, tgt in train_loader:
+        out = transformer.forward(src, tgt)
+        loss = loss_fn(out, tgt)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
     print(loss.float())
+
+exit()
+for batch, (pt_examples, en_examples) in enumerate(train_examples.batch(BATCH_SIZE).take(EPOCHS)):
+    transformer.train()
+    print(
+        f"########################## Batch {batch + 1} ##########################")
+    for phrase, (pt, en) in enumerate(zip(pt_examples.numpy(), en_examples.numpy())):
+        src = nlpPt(pt.decode('utf-8')).vector
+        tgt = nlpEn(en.decode('utf-8')).vector
+        # print(src.shape, tgt.shape)
+        m = min(len(src), len(tgt))
+        src = torch.tensor(src[:d_model]).unsqueeze(0).unsqueeze(0)
+        tgt = torch.tensor(tgt[:d_model]).unsqueeze(0).unsqueeze(0)
+        # print(src.shape, tgt.shape)
+        out = transformer.forward(src, tgt)
+        loss = loss_fn(out, tgt)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+    print(loss.float())
+    for batch, (pt_examples, en_examples) in enumerate(val_examples.batch(1).take(1)):
+        transformer.eval()
+        for phrase, (pt, en) in enumerate(zip(pt_examples.numpy(), en_examples.numpy())):
+            pt_utf8 = pt.decode('utf-8')
+            en_utf8 = en.decode('utf-8')
+            print(f"pt: {pt_utf8}")
+            print(f"en: {en_utf8}")
+            src = nlpPt(pt_utf8).vector
+            tgt = nlpEn(en_utf8).vector
+            # print(src.shape, tgt.shape)
+            src = torch.tensor(src[:d_model]).unsqueeze(0).unsqueeze(0)
+            tgt = torch.tensor(tgt[:d_model]).unsqueeze(0).unsqueeze(0)
+            # print(out.shape)
+
+            out = transformer.forward(src, tgt)
+            ms = nlpEn.vocab.vectors.most_similar(out.detach().numpy()[0], n=3)
+            print(ms)
+            words = [nlpEn.vocab.strings[w] for w in ms[0][0]]
+            print(words)
+            # print(out)
 
 
 # print(f"Phrase {phrase} pt: {pt_utf8}")
@@ -164,21 +164,3 @@ for batch, (pt_examples, en_examples) in enumerate(train_examples.batch(1).take(
 #   optimizer.step()
 #   print(loss)
 # exit()
-
-
-
-
-# your_word = "cachorro"
-
-# for token in nlpPt(your_word):
-#   vector = np.array([token.vector])
-#   break
-# print(your_word, vector)
-# ms = nlpPt.vocab.vectors.most_similar(vector, n=10)
-# words = [nlpPt.vocab.strings[w] for w in ms[0][0]]
-# distances = ms[2]
-# print(words)
-# exit()
-
-
-
