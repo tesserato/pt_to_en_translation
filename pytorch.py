@@ -84,9 +84,12 @@ else: # if not, creates tensors from the dataset ans saves them
 
 print(pt_tensor.size(), en_tensor.size())
 BATCH_SIZE = 64
-EPOCHS = 1000
 train = torch.utils.data.TensorDataset(pt_tensor, en_tensor)
 train_loader = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle=True)
+val = torch.utils.data.TensorDataset(pt_tensor_val, en_tensor_val)
+val_loader = torch.utils.data.DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
+
+EPOCHS = 1000
 
 
 d_model = 300
@@ -99,10 +102,10 @@ transformer = Transformer(
     #  tgt_vocab_size=len(nlpEn.vocab),
 )
 
-
 loss_fn = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(
-    transformer.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
+    transformer.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9
+    )
 
 for epoch in range(EPOCHS):
     for src, tgt in train_loader:
