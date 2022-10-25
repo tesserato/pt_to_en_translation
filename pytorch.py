@@ -78,7 +78,8 @@ class Seq2SeqTransformer(nn.Module):
                 tgt_mask: Tensor,
                 src_padding_mask: Tensor,
                 tgt_padding_mask: Tensor,
-                memory_key_padding_mask: Tensor):
+                memory_key_padding_mask: Tensor
+                ):
         src_emb = self.positional_encoding(self.src_tok_emb(src))
         tgt_emb = self.positional_encoding(self.tgt_tok_emb(trg))
         # print("emb sizes", src_emb.size(), tgt_emb.size())
@@ -179,7 +180,7 @@ src_vocab.set_default_index(UNK_IDX)
 tgt_vocab = build_vocab_from_iterator(yield_tokens("02_train_en.txt"), specials=special_symbols)
 tgt_vocab.set_default_index(UNK_IDX)
 
-src_train_tensor = tensorFromRawData("01_train_pt.txt", src_vocab)
+src_train_tensor = tensorFromRawData("01_train_pt.txt", src_vocab) # tensor of indices
 tgt_train_tensor = tensorFromRawData("02_train_en.txt", tgt_vocab)
 src_val_tensor = tensorFromRawData("03_val_pt.txt", src_vocab)
 tgt_val_tensor = tensorFromRawData("04_val_en.txt", tgt_vocab)
