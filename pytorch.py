@@ -235,7 +235,7 @@ for epoch in range(EPOCHS):
       src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(src, tgt_input)
 
       logits = transformer(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
-      print(logits)
+      print(src.size(), logits.size(), len(tgt_vocab))
       optimizer.zero_grad()
 
       tgt_out = tgt[:, 1:]
