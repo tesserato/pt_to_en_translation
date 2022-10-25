@@ -87,22 +87,22 @@ class Seq2SeqTransformer(nn.Module):
                                 src_padding_mask, tgt_padding_mask, memory_key_padding_mask)
         return self.generator(outs)
 
-    def encode(self, src: Tensor, src_mask: Tensor):
-        print("Encoding")
-        return self.transformer.encoder(
-          self.positional_encoding(self.src_tok_emb(src)), 
-          src_mask
-          )
+    # def encode(self, src: Tensor, src_mask: Tensor):
+    #     print("Encoding")
+    #     return self.transformer.encoder(
+    #       self.positional_encoding(self.src_tok_emb(src)), 
+    #       src_mask
+    #       )
 
-    def decode(self, tgt: Tensor, memory: Tensor, tgt_mask: Tensor):
-        print("Decoding")
-        pos_enc = self.positional_encoding(self.tgt_tok_emb(tgt))
-        print(pos_enc.size(), memory.size())
-        return self.transformer.decoder(
-          pos_enc, 
-          memory,
-          tgt_mask
-        )
+    # def decode(self, tgt: Tensor, memory: Tensor, tgt_mask: Tensor):
+    #     print("Decoding")
+    #     pos_enc = self.positional_encoding(self.tgt_tok_emb(tgt))
+    #     print(pos_enc.size(), memory.size())
+    #     return self.transformer.decoder(
+    #       pos_enc, 
+    #       memory,
+    #       tgt_mask
+    #     )
 
 def generate_square_subsequent_mask(sz):
     mask = (torch.triu(torch.ones((sz, sz), device=DEVICE)) == 1).transpose(0, 1)
@@ -140,38 +140,38 @@ def tensorFromRawData(file_path, vocab):
   return pad_sequence(data, padding_value=PAD_IDX, batch_first=True)
 
 # function to generate output sequence using greedy algorithm
-def greedy_decode(model, src, src_mask, max_len, start_symbol):
-    src = src.to(DEVICE)
-    src_mask = src_mask.to(DEVICE)
+# def greedy_decode(model, src, src_mask, max_len, start_symbol):
+#     src = src.to(DEVICE)
+#     src_mask = src_mask.to(DEVICE)
 
-    memory = model.encode(src, src_mask)
-    ys = torch.ones(1, 1).fill_(start_symbol).type(torch.long).to(DEVICE)
-    for _ in range(max_len-1):
-        memory = memory.to(DEVICE)
-        tgt_mask = (generate_square_subsequent_mask(ys.size(0))
-                    .type(torch.bool)).to(DEVICE)
-        out = model.decode(ys, memory, tgt_mask)
-        print("Decoded")
-        out = out.transpose(0, 1)
-        prob = model.generator(out[:, -1])
-        _, next_word = torch.max(prob, dim=1)
-        next_word = next_word.item()
+#     memory = model.encode(src, src_mask)
+#     ys = torch.ones(1, 1).fill_(start_symbol).type(torch.long).to(DEVICE)
+#     for _ in range(max_len-1):
+#         memory = memory.to(DEVICE)
+#         tgt_mask = (generate_square_subsequent_mask(ys.size(0))
+#                     .type(torch.bool)).to(DEVICE)
+#         out = model.decode(ys, memory, tgt_mask)
+#         print("Decoded")
+#         out = out.transpose(0, 1)
+#         prob = model.generator(out[:, -1])
+#         _, next_word = torch.max(prob, dim=1)
+#         next_word = next_word.item()
 
-        ys = torch.cat([ys,
-                        torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=0)
-        if next_word == EOS_IDX:
-            break
-    return ys
+#         ys = torch.cat([ys,
+#                         torch.ones(1, 1).type_as(src.data).fill_(next_word)], dim=0)
+#         if next_word == EOS_IDX:
+#             break
+#     return ys
 
-def translate(model: torch.nn.Module, src_sentence: str):
-    model.eval()
-    src = torch.tensor([BOS_IDX] + src_vocab(toTokens(src_sentence.rstrip("\n"))) + [EOS_IDX]).view(-1, 1)
-    print(src.size())
-    num_tokens = src.shape[0]
-    src_mask = (torch.zeros(num_tokens, num_tokens)).type(torch.bool)
-    tgt_tokens = greedy_decode(
-        model, src, src_mask, max_len=num_tokens + 5, start_symbol=BOS_IDX).flatten()
-    return " ".join(tgt_vocab.lookup_tokens(list(tgt_tokens.cpu().numpy()))).replace("<bos>", "").replace("<eos>", "")
+# def translate(model: torch.nn.Module, src_sentence: str):
+#     model.eval()
+#     src = torch.tensor([BOS_IDX] + src_vocab(toTokens(src_sentence.rstrip("\n"))) + [EOS_IDX]).view(-1, 1)
+#     print(src.size())
+#     num_tokens = src.shape[0]
+#     src_mask = (torch.zeros(num_tokens, num_tokens)).type(torch.bool)
+#     tgt_tokens = greedy_decode(
+#         model, src, src_mask, max_len=num_tokens + 5, start_symbol=BOS_IDX).flatten()
+#     return " ".join(tgt_vocab.lookup_tokens(list(tgt_tokens.cpu().numpy()))).replace("<bos>", "").replace("<eos>", "")
 
 
 
@@ -217,7 +217,7 @@ transformer = transformer.to(DEVICE)
 loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 optimizer = torch.optim.Adam(transformer.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
 
-print("TEST:", translate(transformer, "mas e se estes fatores fossem ativos ?"))
+# print("TEST:", translate(transformer, "mas e se estes fatores fossem ativos ?"))
 
 #########################
 
@@ -235,7 +235,7 @@ for epoch in range(EPOCHS):
       src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(src, tgt_input)
 
       logits = transformer(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
-
+      print(logits)
       optimizer.zero_grad()
 
       tgt_out = tgt[:, 1:]
@@ -257,6 +257,7 @@ for epoch in range(EPOCHS):
           src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(src, tgt_input)
 
           logits = transformer(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
+          
 
           optimizer.zero_grad()
 
