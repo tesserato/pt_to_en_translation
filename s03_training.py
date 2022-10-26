@@ -83,12 +83,12 @@ for epoch in range(EPOCHS):
           loss.backward()
           optimizer.step()
           totalEvalLoss.append(loss.item())
-          if iterVal > 2:
+          if iterVal > 5:
             break
         evalLoss = np.average(totalEvalLoss)
         print(f"    Eval average loss = {evalLoss}")
         if evalLoss < bestEvalLoss:
           print(f"    average validation loss improved from {np.round(bestEvalLoss, 3)} to {np.round(evalLoss, 3)} ")
-          torch.save(transformer, pathToTransformer)
+          torch.save(transformer, pathToTransformer + ".pt")
           bestEvalLoss = evalLoss
-          np.savetxt(pathToTransformer + ".txt", [bestEvalLoss])
+          np.savetxt(pathToTransformer + ".txt", [bestEvalLoss], fmt='%f')
