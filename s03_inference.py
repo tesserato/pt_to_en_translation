@@ -1,10 +1,23 @@
-from s02_transformerDefinition import *
+'''
+Inference with the best trained model loaded from disk and the class definitions in file "s03_training.py"
+'''
+from transformerDefinition import *
 
-transformer = torch.load("transformer.pt")
+tsd = torch.load("transformer state_dict.pt")
+transformer = Seq2SeqTransformer(
+  tsd["NUM_ENCODER_LAYERS"], 
+  tsd["NUM_DECODER_LAYERS"], 
+  tsd["EMB_SIZE"], 
+  tsd["NHEAD"], 
+  tsd["SRC_VOCAB_SIZE"], 
+  tsd["TGT_VOCAB_SIZE"], 
+  tsd["FFN_HID_DIM"]
+)
+transformer.load_state_dict(tsd['model_state_dict'])
 transformer.eval()
 
 
-IDX = 2
+IDX = 3
 print(">> teste de tradução:")
 ipt_pt = src_vocab.lookup_tokens([id for id in src_val_tensor[IDX] if id != PAD_IDX])
 ipt_pt = " ".join([t for t in ipt_pt if t not in special_symbols])
@@ -25,8 +38,8 @@ idxs = []
 for _ in range(max_length):
     src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(input_sequence, y_input)
 
-    logits = transformer(input_sequence, y_input, None, None, None, None, None)
-    # logits = transformer(input_sequence, y_input, src_mask, tgt_mask, src_padding_mask, tgt_padding_mask, src_padding_mask)
+    # logits = transformer(input_sequence, y_input, None, None, None, None, None)
+    logits = transformer(input_sequence, y_input, src_mask, tgt_mask, src_padding_mask, tgt_padding_mask, src_padding_mask)
 
     # print(logits[0].size())
     # print(torch.argmax(logits[0], 1))

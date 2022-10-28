@@ -1,6 +1,9 @@
-from s02_transformerDefinition import *
+'''
+runs the training process.
+'''
+from transformerDefinition import *
 import os
-
+import numpy as np
 
 torch.manual_seed(0)
 EPOCHS = 1000
@@ -23,9 +26,11 @@ bestEvalLoss = np.inf
 pathToTransformer = "transformer"
 if os.path.isfile(pathToTransformer + ".pt"):
   bestEvalLoss = np.genfromtxt(pathToTransformer + ".txt")
-  # print(bestEvalLoss)
-  # exit()
-  transformer = torch.load(pathToTransformer + ".pt")
+  tsd = torch.load(pathToTransformer + " state_dict.pt")
+  transformer = Seq2SeqTransformer(
+    tsd["NUM_ENCODER_LAYERS"], tsd["NUM_DECODER_LAYERS"], tsd["EMB_SIZE"], tsd["NHEAD"], tsd["SRC_VOCAB_SIZE"], tsd["TGT_VOCAB_SIZE"], tsd["FFN_HID_DIM"]
+  )
+  transformer.load_state_dict(tsd['model_state_dict'])
 else:
   transformer = Seq2SeqTransformer(
     NUM_ENCODER_LAYERS, NUM_DECODER_LAYERS, EMB_SIZE, NHEAD, SRC_VOCAB_SIZE, TGT_VOCAB_SIZE, FFN_HID_DIM
@@ -75,7 +80,7 @@ for epoch in range(EPOCHS):
           # print("ipt sizes", src.size(), tgt_input.size())
           
           src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(src, tgt_input)
-          logits = transformer(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
+          logits = transformer(src, tgt_input, src_mask, tgt_mask, src_padding_mask, tgt_padding_mask, src_padding_mask)
           optimizer.zero_grad()
 
           tgt_out = tgt[:, 1:]
@@ -89,6 +94,22 @@ for epoch in range(EPOCHS):
         print(f"    Eval average loss = {evalLoss}")
         if evalLoss < bestEvalLoss:
           print(f"    average validation loss improved from {np.round(bestEvalLoss, 3)} to {np.round(evalLoss, 3)} ")
-          torch.save(transformer, pathToTransformer + ".pt")
+          # # Method 1: saving model directly
+          # torch.save(transformer, pathToTransformer + ".pt") 
+          # Method 2: saving state_dict and model parameters
+          torch.save(
+            {
+              "model_state_dict": transformer.state_dict(),
+              "NUM_ENCODER_LAYERS":NUM_ENCODER_LAYERS,
+              "NUM_DECODER_LAYERS":NUM_DECODER_LAYERS,
+              "EMB_SIZE":EMB_SIZE,
+              "NHEAD":NHEAD,
+              "SRC_VOCAB_SIZE":SRC_VOCAB_SIZE,
+              "TGT_VOCAB_SIZE":TGT_VOCAB_SIZE,
+              "FFN_HID_DIM":FFN_HID_DIM
+            }
+            , pathToTransformer + " state_dict.pt"
+          )
+
           bestEvalLoss = evalLoss
           np.savetxt(pathToTransformer + ".txt", [bestEvalLoss], fmt='%f')

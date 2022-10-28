@@ -1,4 +1,6 @@
-import numpy as np
+'''
+This file has the definitions for the classes used in the model, the vocabularies and the tensors used by the dataloaders. It is imported by other scripts, so there is no need to run it directly.
+'''
 from torchtext.vocab import build_vocab_from_iterator
 from torch import Tensor
 import torch
@@ -15,26 +17,6 @@ UNK_IDX, PAD_IDX, BOS_IDX, EOS_IDX = 0, 1, 2, 3
 # Make sure the tokens are in order of their indices to properly insert them in vocab
 special_symbols = ['<unk>', '<pad>', '<bos>', '<eos>']
 
-# helper Module that adds positional encoding to the token embedding to introduce a notion of word order.
-class PositionalEncoding(nn.Module):
-    def __init__(self,
-                 emb_size: int,
-                 dropout: float,
-                 maxlen: int = 5000):
-        super(PositionalEncoding, self).__init__()
-        den = torch.exp(- torch.arange(0, emb_size, 2)* math.log(10000) / emb_size)
-        pos = torch.arange(0, maxlen).reshape(maxlen, 1)
-        pos_embedding = torch.zeros((maxlen, emb_size))
-        pos_embedding[:, 0::2] = torch.sin(pos * den)
-        pos_embedding[:, 1::2] = torch.cos(pos * den)
-        pos_embedding = pos_embedding.unsqueeze(-2)
-
-        self.dropout = nn.Dropout(dropout)
-        self.register_buffer('pos_embedding', pos_embedding)
-
-    def forward(self, token_embedding: Tensor):
-        return self.dropout(token_embedding + self.pos_embedding[:token_embedding.size(0), :])
-
 # helper Module to convert tensor of input indices into corresponding tensor of token embeddings
 class TokenEmbedding(nn.Module):
     def __init__(self, vocab_size: int, emb_size):
@@ -44,6 +26,30 @@ class TokenEmbedding(nn.Module):
 
     def forward(self, tokens: Tensor):
         return self.embedding(tokens.long()) * math.sqrt(self.emb_size)
+
+# helper Module that adds positional encoding to the token embedding to introduce a notion of word order.
+class PositionalEncoding(nn.Module):
+    def __init__(
+      self,
+      emb_size: int,
+      dropout: float,
+      maxlen: int = 5000
+      ):
+        super(PositionalEncoding, self).__init__()
+        den = torch.exp(- torch.arange(0, emb_size, 2) * math.log(10000) / emb_size)
+        pos = torch.arange(0, maxlen).reshape(maxlen, 1)
+        posTimesDen = pos * den
+        pos_embedding = torch.zeros((maxlen, emb_size))
+        pos_embedding[:, 0::2] = torch.sin(posTimesDen)
+        pos_embedding[:, 1::2] = torch.cos(posTimesDen)
+        pos_embedding = pos_embedding.unsqueeze(-2)
+
+        self.dropout = nn.Dropout(dropout)
+        self.register_buffer('pos_embedding', pos_embedding)
+
+    def forward(self, token_embedding: Tensor):
+        return self.dropout(token_embedding + self.pos_embedding[:token_embedding.size(0), :])
+
 
 # Seq2Seq Network
 class Seq2SeqTransformer(nn.Module):
@@ -85,22 +91,22 @@ class Seq2SeqTransformer(nn.Module):
                                 src_padding_mask, tgt_padding_mask, memory_key_padding_mask)
         return self.generator(outs)
 
-    # def encode(self, src: Tensor, src_mask: Tensor):
-    #     print("Encoding")
-    #     return self.transformer.encoder(
-    #       self.positional_encoding(self.src_tok_emb(src)), 
-    #       src_mask
-    #       )
+    def encode(self, src: Tensor, src_mask: Tensor):
+        print("Encoding")
+        return self.transformer.encoder(
+          self.positional_encoding(self.src_tok_emb(src)), 
+          src_mask
+          )
 
-    # def decode(self, tgt: Tensor, memory: Tensor, tgt_mask: Tensor):
-    #     print("Decoding")
-    #     pos_enc = self.positional_encoding(self.tgt_tok_emb(tgt))
-    #     print(pos_enc.size(), memory.size())
-    #     return self.transformer.decoder(
-    #       pos_enc, 
-    #       memory,
-    #       tgt_mask
-    #     )
+    def decode(self, tgt: Tensor, memory: Tensor, tgt_mask: Tensor):
+        print("Decoding")
+        pos_enc = self.positional_encoding(self.tgt_tok_emb(tgt))
+        # print(pos_enc.size(), memory.size())
+        return self.transformer.decoder(
+          pos_enc, 
+          memory,
+          tgt_mask
+        )
 
 def generate_square_subsequent_mask(sz):
     mask = (torch.triu(torch.ones((sz, sz), device=DEVICE)) == 1).transpose(0, 1)

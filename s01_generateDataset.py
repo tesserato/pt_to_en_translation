@@ -1,6 +1,9 @@
 import tensorflow_datasets as tfds
+'''
+Run this file to download the dataset ans save it to disk as 4 .txt files
+''' 
 
-'''This will download the dataset on first run'''
+# This will download the dataset on first run
 examples, metadata = tfds.load(
     'ted_hrlr_translate/pt_to_en',
     with_info=True,
