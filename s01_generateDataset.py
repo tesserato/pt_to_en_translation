@@ -1,7 +1,12 @@
 import tensorflow_datasets as tfds
+import os
 '''
 Run this file to download the dataset ans save it to disk as 4 .txt files
 ''' 
+
+
+ROOT = ""
+
 
 # This will download the dataset on first run
 examples, metadata = tfds.load(
@@ -20,11 +25,11 @@ for batch, (pt_examples, en_examples) in enumerate(train_examples.batch(MAX_TRAI
         data_en.append(en.decode('utf-8') + "\n")
         print(f"creating training data... {phrase + 1} of {MAX_TRAIN_EXAMPLES}")
 
-f = open("01_train_pt.txt", "w", encoding="utf-8")
+f = open(ROOT + "01_train_pt.txt", "w", encoding="utf-8")
 f.writelines(data_pt)
 f.close()
 
-f = open("02_train_en.txt", "w", encoding="utf-8")
+f = open(ROOT + "02_train_en.txt", "w", encoding="utf-8")
 f.writelines(data_en)
 f.close()
 
@@ -37,10 +42,10 @@ for batch, (pt_examples, en_examples) in enumerate(val_examples.batch(MAX_VAL_EX
         data_en.append(en.decode('utf-8') + "\n")
         print(f"creating validation data... {phrase + 1} of {MAX_VAL_EXAMPLES}")
 
-f = open("03_val_pt.txt", "w", encoding="utf-8")
+f = open(ROOT + "03_val_pt.txt", "w", encoding="utf-8")
 f.writelines(data_pt)
 f.close()
 
-f = open("04_val_en.txt", "w", encoding="utf-8")
+f = open(ROOT + "04_val_en.txt", "w", encoding="utf-8")
 f.writelines(data_en)
 f.close()

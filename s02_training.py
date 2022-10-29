@@ -5,6 +5,8 @@ from transformerDefinition import *
 import os
 import numpy as np
 
+ROOT = ""
+
 torch.manual_seed(0)
 EPOCHS = 1000
 SRC_VOCAB_SIZE = len(src_vocab)
@@ -21,12 +23,13 @@ train_loader = torch.utils.data.DataLoader(train, batch_size=BATCH_SIZE, shuffle
 val = torch.utils.data.TensorDataset(src_val_tensor, tgt_val_tensor)
 val_loader = torch.utils.data.DataLoader(val, batch_size=BATCH_SIZE, shuffle=True)
 
+PATH_TO_STATE_DICT = ROOT + "transformer state_dict.pt"
+PATH_TO_BEST_LOSS = ROOT + "bestLoss.txt"
 
 bestEvalLoss = np.inf
-pathToTransformer = "transformer"
-if os.path.isfile(pathToTransformer + ".pt"):
-  bestEvalLoss = np.genfromtxt(pathToTransformer + ".txt")
-  tsd = torch.load(pathToTransformer + " state_dict.pt")
+if os.path.isfile(PATH_TO_STATE_DICT):
+  bestEvalLoss = np.genfromtxt(PATH_TO_BEST_LOSS)
+  tsd = torch.load(PATH_TO_STATE_DICT)
   transformer = Seq2SeqTransformer(
     tsd["NUM_ENCODER_LAYERS"], tsd["NUM_DECODER_LAYERS"], tsd["EMB_SIZE"], tsd["NHEAD"], tsd["SRC_VOCAB_SIZE"], tsd["TGT_VOCAB_SIZE"], tsd["FFN_HID_DIM"]
   )
@@ -43,7 +46,6 @@ transformer = transformer.to(DEVICE)
 loss_fn = torch.nn.CrossEntropyLoss(ignore_index=PAD_IDX)
 optimizer = torch.optim.Adam(transformer.parameters(), lr=0.0001, betas=(0.9, 0.98), eps=1e-9)
 
-# print("TEST:", translate(transformer, "mas e se estes fatores fossem ativos ?"))
 
 #########################
 
@@ -108,8 +110,8 @@ for epoch in range(EPOCHS):
               "TGT_VOCAB_SIZE":TGT_VOCAB_SIZE,
               "FFN_HID_DIM":FFN_HID_DIM
             }
-            , pathToTransformer + " state_dict.pt"
+            , PATH_TO_STATE_DICT
           )
 
           bestEvalLoss = evalLoss
-          np.savetxt(pathToTransformer + ".txt", [bestEvalLoss], fmt='%f')
+          np.savetxt(PATH_TO_BEST_LOSS, [bestEvalLoss], fmt='%f')

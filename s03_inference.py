@@ -3,7 +3,11 @@ Inference with the best trained model loaded from disk and the class definitions
 '''
 from transformerDefinition import *
 
-tsd = torch.load("transformer state_dict.pt")
+ROOT = ""
+PATH_TO_STATE_DICT = ROOT + "transformer state_dict.pt"
+
+
+tsd = torch.load(PATH_TO_STATE_DICT, map_location=torch.device(DEVICE))
 transformer = Seq2SeqTransformer(
   tsd["NUM_ENCODER_LAYERS"], 
   tsd["NUM_DECODER_LAYERS"], 
@@ -17,7 +21,7 @@ transformer.load_state_dict(tsd['model_state_dict'])
 transformer.eval()
 
 
-IDX = 3
+IDX = 2
 print(">> teste de tradução:")
 ipt_pt = src_vocab.lookup_tokens([id for id in src_val_tensor[IDX] if id != PAD_IDX])
 ipt_pt = " ".join([t for t in ipt_pt if t not in special_symbols])

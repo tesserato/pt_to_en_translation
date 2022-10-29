@@ -177,16 +177,16 @@ def tensorFromRawData(file_path, vocab):
 #         model, src, src_mask, max_len=num_tokens + 5, start_symbol=BOS_IDX).flatten()
 #     return " ".join(tgt_vocab.lookup_tokens(list(tgt_tokens.cpu().numpy()))).replace("<bos>", "").replace("<eos>", "")
 
+ROOT = ""
 
-
-src_vocab = build_vocab_from_iterator(yield_tokens("01_train_pt.txt"), specials=special_symbols)
+src_vocab = build_vocab_from_iterator(yield_tokens(ROOT + "01_train_pt.txt"), specials=special_symbols)
 src_vocab.set_default_index(UNK_IDX)
-tgt_vocab = build_vocab_from_iterator(yield_tokens("02_train_en.txt"), specials=special_symbols)
+tgt_vocab = build_vocab_from_iterator(yield_tokens(ROOT + "02_train_en.txt"), specials=special_symbols)
 tgt_vocab.set_default_index(UNK_IDX)
 
-src_train_tensor = tensorFromRawData("01_train_pt.txt", src_vocab) # tensor of indices
-tgt_train_tensor = tensorFromRawData("02_train_en.txt", tgt_vocab)
-src_val_tensor = tensorFromRawData("03_val_pt.txt", src_vocab)
-tgt_val_tensor = tensorFromRawData("04_val_en.txt", tgt_vocab)
+src_train_tensor = tensorFromRawData(ROOT + "01_train_pt.txt", src_vocab) # tensor of indices
+tgt_train_tensor = tensorFromRawData(ROOT + "02_train_en.txt", tgt_vocab)
+src_val_tensor = tensorFromRawData(ROOT + "03_val_pt.txt", src_vocab)
+tgt_val_tensor = tensorFromRawData(ROOT + "04_val_en.txt", tgt_vocab)
 
 # print(src_train_tensor.size(), tgt_train_tensor.size(), src_val_tensor.size(), tgt_val_tensor.size())
